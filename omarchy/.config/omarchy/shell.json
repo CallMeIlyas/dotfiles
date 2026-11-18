@@ -1,0 +1,159 @@
+{
+  "bar": {
+    "background": "none",
+    "centerAnchor": "omarchy.clock",
+    "id": "callmeilyas.bar",
+    "layout": {
+      "center": [
+        {
+          "id": "omarchy.indicators"
+        },
+        {
+          "id": "omarchy.weather"
+        },
+        {
+          "id": "omarchy-media-control"
+        },
+        {
+          "format": "dddd HH:mm",
+          "formatAlt": "d MMMM 'W'ww yyyy",
+          "id": "omarchy.clock",
+          "verticalFormat": "HH\n—\nmm"
+        },
+        {
+          "id": "omarchy.elsewhen",
+          "cities": [
+            {
+              "name": "Jakarta",
+              "zone": "Asia/Jakarta"
+            },
+            {
+              "name": "Los Angeles",
+              "zone": "America/Los_Angeles"
+            },
+            {
+              "name": "New York",
+              "zone": "America/New_York"
+            },
+            {
+              "name": "London",
+              "zone": "Europe/London"
+            },
+            {
+              "name": "Dubai",
+              "zone": "Asia/Dubai"
+            }
+          ]
+        },
+        {
+          "id": "omarchy.system-update"
+        },
+        {
+          "displayMode": "compact",
+          "id": "ah410.islamic-prayer-times",
+          "latitude": -7.33194,
+          "locationName": "Salatiga",
+          "longitude": 110.49278,
+          "method": 20,
+          "school": 0,
+          "timezone": "Asia/Jakarta"
+        }
+      ],
+      "centerBegin": [],
+      "centerEnd": [],
+      "left": [
+        {
+          "id": "callmeilyas.menu"
+        },
+        {
+          "id": "callmeilyas.workspaces"
+        },
+        {
+          "id": "bibek.focusd"
+        }
+      ],
+      "right": [
+        {
+          "id": "omarchy.keyboard-layout"
+        },
+        {
+          "hidden": [],
+          "id": "omarchy.tray",
+          "pinned": []
+        },
+        {
+          "id": "io.github.alvmarrod.kanji-of-the-day"
+        },
+        {
+          "id": "oxrapzz.screenhub"
+        },
+        {
+          "id": "io.github.woogy7.vitals"
+        },
+        {
+          "id": "callmeilyas.agents",
+          "providers": {
+            "antigravity": {
+              "enabled": true
+            },
+            "claude": {
+              "enabled": false
+            },
+            "codex": {
+              "enabled": true
+            },
+            "fireworks": {
+              "enabled": false
+            }
+          }
+        },
+        {
+          "id": "omarchy.bluetooth"
+        },
+        {
+          "id": "omarchy.network"
+        },
+        {
+          "id": "callmeilyas.monitor"
+        },
+        {
+          "id": "callmeilyas.power",
+          "showPercentage": false
+        },
+        {
+          "id": "omarchy.audio"
+        }
+      ],
+      "tray": []
+    },
+    "position": "top"
+  },
+  "cloneSourceRestores": [
+    "callmeilyas.menu",
+    "io.github.sirjul1337.lock-explorer"
+  ],
+  "disabledPlugins": [
+    "omarchy.menu",
+    "omarchy.lock"
+  ],
+  "dock": {
+    "pinned": [
+      "org.gnome.Nautilus",
+      "X",
+      "YouTube"
+    ]
+  },
+  "idle": {
+    "lock": 300,
+    "screensaver": 150
+  },
+  "plugins": [
+    "bibek.focusd",
+    "omarchy-media-control",
+    {
+      "id": "io.github.sirjul1337.lock-explorer",
+      "design": "my-music"
+    }
+  ],
+  "version": 1
+}

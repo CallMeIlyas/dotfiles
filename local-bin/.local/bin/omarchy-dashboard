@@ -1,0 +1,19 @@
+#!/bin/bash
+
+CONFIG_DIR="$HOME/.config/eww/dashboard"
+EWW_BIN="eww -c $CONFIG_DIR"
+
+# Ensure daemon is running
+if ! pgrep -f "eww.*dashboard.*daemon" > /dev/null; then
+    $EWW_BIN daemon &
+    sleep 0.5
+fi
+
+# Toggle logic
+if $EWW_BIN active-windows 2>/dev/null | grep -q "dashboard"; then
+    $EWW_BIN close dashboard dashboard_closer
+else
+    # Open order matters for stacking: closer first, then dashboard
+    $EWW_BIN open dashboard_closer
+    $EWW_BIN open dashboard
+fi

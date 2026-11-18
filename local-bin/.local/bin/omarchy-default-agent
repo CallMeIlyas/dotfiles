@@ -1,0 +1,47 @@
+#!/bin/bash
+
+# omarchy:summary=Set and launch the default coding agent
+# omarchy:args=[antigravity|agy|pi|omp|opencode|claude|codex|grok|gemini|copilot|crush]
+
+installing=false
+if [[ ${1:-} == "--install" ]]; then
+  installing=true
+  shift
+fi
+
+agent_file="$HOME/.config/omarchy/defaults/agent"
+
+if (($# == 0)); then
+  if [[ -f $agent_file ]]; then
+    read -r agent <"$agent_file"
+  fi
+  [[ -n ${agent:-} ]] && echo "$agent"
+  exit 0
+fi
+
+case "$1" in
+antigravity | agy) agent="antigravity"; name="Antigravity" ;;
+pi) agent="pi"; name="Pi" ;;
+omp | oh-my-pi) agent="omp"; name="Oh My Pi"; agent_package="github:can1357/oh-my-pi" ;;
+opencode | open-code) agent="opencode"; name="OpenCode" ;;
+claude | claude-code) agent="claude"; name="Claude Code" ;;
+codex) agent="codex"; name="Codex" ;;
+crush) agent="crush"; name="Crush" ;;
+grok) agent="grok"; name="Grok"; agent_package="npm:@xai-official/grok" ;;
+gemini | gemini-cli) agent="gemini"; name="Gemini" ;;
+copilot | github-copilot) agent="copilot"; name="GitHub Copilot" ;;
+*)
+  echo "Usage: omarchy-default-agent <antigravity|agy|pi|omp|opencode|claude|codex|grok|gemini|copilot|crush>"
+  exit 1
+  ;;
+esac
+
+mkdir -p "$(dirname "$agent_file")"
+printf '%s\n' "$agent" >"$agent_file"
+
+if [[ $installing == "true" ]]; then
+  printf '\033[2J\033[3J\033[H'
+  exec omarchy-agent --inline
+else
+  exec omarchy-agent
+fi

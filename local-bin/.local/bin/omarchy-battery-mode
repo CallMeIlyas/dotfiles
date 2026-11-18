@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# omarchy:summary=Switch battery charging mode
+# omarchy:group=battery
+# omarchy:args=[home|travel]
+# omarchy:examples=omarchy battery mode home | omarchy battery mode travel
+
+STATE_FILE="$HOME/.local/state/omarchy/battery-mode"
+
+if [[ $1 == "home" ]] || [[ $1 == "travel" ]]; then
+  MODE=$1
+else
+  # Prompt using walker --dmenu
+  OPTIONS="󰋜 Home\n󰳀 Travel"
+  SELECTED=$(echo -e "$OPTIONS" | walker --dmenu)
+
+  case "$SELECTED" in
+    "󰋜 Home")  MODE="home" ;;
+    "󰳀 Travel") MODE="travel" ;;
+    *) exit 0 ;;
+  esac
+fi
+
+if [[ $MODE == "home" ]]; then
+  START=75
+  STOP=80
+else
+  START=95
+  STOP=100
+fi
+
+# Update /etc/tlp.conf
+# We use sudo sed. The sudoers file will allow this.
+sudo sed -i "s/^START_CHARGE_THRESH_BAT0=.*/START_CHARGE_THRESH_BAT0=$START/" /etc/tlp.conf
+sudo sed -i "s/^STOP_CHARGE_THRESH_BAT0=.*/STOP_CHARGE_THRESH_BAT0=$STOP/" /etc/tlp.conf
+
+# Apply changes
+sudo tlp start
+
+# Save state
+echo "$MODE" > "$STATE_FILE"

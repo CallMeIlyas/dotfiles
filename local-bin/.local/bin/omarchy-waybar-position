@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# omarchy:summary=Switch status bar position
+# omarchy:group=waybar
+# omarchy:args=[top|bottom|left|right]
+# omarchy:examples=omarchy waybar position top | omarchy waybar position left
+
+if [[ $1 == "top" ]] || [[ $1 == "bottom" ]] || [[ $1 == "left" ]] || [[ $1 == "right" ]]; then
+  POSITION=$1
+else
+  # Prompt using walker --dmenu
+  OPTIONS="󱃚 Top\n󱃛 Bottom\n󱃘 Left\n󱃙 Right"
+  SELECTED=$(echo -e "$OPTIONS" | walker --dmenu)
+
+  case "$SELECTED" in
+    "󱃚 Top")    POSITION="top" ;;
+    "󱃛 Bottom") POSITION="bottom" ;;
+    "󱃘 Left")   POSITION="left" ;;
+    "󱃙 Right")  POSITION="right" ;;
+    *) exit 0 ;;
+  esac
+fi
+
+# Update Omarchy Shell bar position
+omarchy bar position "$POSITION"
+
+# Backwards compatibility if legacy waybar config exists
+CONFIG_FILE="$HOME/.config/waybar/config.jsonc"
+if [[ -f "$CONFIG_FILE" ]]; then
+  sed -i "s/\"position\": \".*\"/\"position\": \"$POSITION\"/" "$CONFIG_FILE"
+  if [[ $POSITION == "top" ]] || [[ $POSITION == "bottom" ]]; then
+    sed -i 's/"width": [0-9]*,/"height": 26,/' "$CONFIG_FILE"
+  else
+    sed -i 's/"height": [0-9]*,/"width": 36,/' "$CONFIG_FILE"
+  fi
+  command -v waybar >/dev/null 2>&1 && omarchy restart waybar 2>/dev/null || true
+fi

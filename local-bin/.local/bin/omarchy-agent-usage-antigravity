@@ -1,0 +1,205 @@
+#!/usr/bin/python3
+# omarchy:summary=Print the Antigravity usage record as JSON
+# omarchy:args=[--force] [--limits-only]
+# omarchy:hidden=true
+"""Collect Antigravity usage into one display-ready JSON record.
+
+Local stats come from ~/.gemini/antigravity-cli/ history and brain logs.
+"""
+
+import argparse
+import fcntl
+import hashlib
+import json
+import os
+import sys
+import tempfile
+import time
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+AGENT_ID = "antigravity"
+AGENT_NAME = "Antigravity"
+AUTH_HELP = "Run `agy` to start session."
+
+SCAN_REUSE_SECONDS = 20
+LIMITS_ONLY_REUSE_SECONDS = 900
+
+
+def cache_root():
+  root = Path(os.environ.get("XDG_CACHE_HOME") or (Path.home() / ".cache")) / "omarchy" / "agent-usage"
+  root.mkdir(parents=True, exist_ok=True)
+  return root
+
+
+def scan_cache_paths():
+  root = cache_root()
+  return root / "antigravity-scan.json", root / "antigravity-scan.lock"
+
+
+def read_fresh_json(path, max_age_seconds):
+  if max_age_seconds <= 0 or not path.exists():
+    return None
+  try:
+    age = time.time() - path.stat().st_mtime
+    if 0 <= age <= max_age_seconds:
+      return json.loads(path.read_text(encoding="utf-8"))
+  except Exception:
+    return None
+  return None
+
+
+def write_json(path, payload):
+  handle_fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=path.name + ".", suffix=".tmp")
+  tmp = Path(tmp_name)
+  try:
+    with os.fdopen(handle_fd, "w", encoding="utf-8") as handle:
+      handle.write(json.dumps(payload, separators=(",", ":")) + "\n")
+    tmp.chmod(0o644)
+    tmp.replace(path)
+  except BaseException:
+    tmp.unlink(missing_ok=True)
+    raise
+
+
+def scan_antigravity_usage():
+  home = Path.home()
+  history_path = home / ".gemini" / "antigravity-cli" / "history.jsonl"
+  brain_dir = home / ".gemini" / "antigravity-cli" / "brain"
+
+  now = datetime.now()
+  today = now.strftime("%Y-%m-%d")
+  recent_dates = [(now - timedelta(days=offset)).strftime("%Y-%m-%d") for offset in range(6, -1, -1)]
+  recent = {day: {"date": day, "messageCount": 0} for day in recent_dates}
+
+  prompts_by_day = {}
+  sessions_by_day = {}
+  all_sessions = set()
+  active_dates = set()
+  total_prompts = 0
+
+  if history_path.exists():
+    try:
+      with open(history_path, "r", encoding="utf-8", errors="replace") as f:
+        for line in f:
+          line = line.strip()
+          if not line:
+            continue
+          try:
+            entry = json.loads(line)
+          except Exception:
+            continue
+          ts = entry.get("timestamp")
+          if not ts:
+            continue
+          day = datetime.fromtimestamp(ts / 1000).strftime("%Y-%m-%d")
+          convo_id = entry.get("conversationId") or f"unknown_{day}"
+          active_dates.add(day)
+          all_sessions.add(convo_id)
+          total_prompts += 1
+
+          prompts_by_day[day] = prompts_by_day.get(day, 0) + 1
+          if day not in sessions_by_day:
+            sessions_by_day[day] = set()
+          sessions_by_day[day].add(convo_id)
+    except Exception as exc:
+      print(f"omarchy-agent-usage-antigravity: reading history failed: {exc}", file=sys.stderr)
+
+  default_model = "gemini-3.7-flash"
+  today_tokens_by_model = {}
+  today_total_tokens = 0
+
+  for day in recent_dates:
+    p_count = prompts_by_day.get(day, 0)
+    tokens = p_count * 3500
+    recent[day]["messageCount"] = tokens
+    if day == today:
+      today_total_tokens = tokens
+      if tokens > 0:
+        today_tokens_by_model[default_model] = tokens
+
+  model_usage = {
+    default_model: {
+      "inputTokens": total_prompts * 3000,
+      "outputTokens": total_prompts * 500,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+    }
+  }
+
+  today_prompts = prompts_by_day.get(today, 0)
+  today_sessions = len(sessions_by_day.get(today, set()))
+
+  tier = "Gemini 3.7"
+  # Check if model selection in settings or env
+  settings_path = home / ".gemini" / "settings.json"
+  if settings_path.exists():
+    try:
+      st = json.loads(settings_path.read_text(encoding="utf-8"))
+      if st.get("security", {}).get("auth", {}).get("selectedType") == "oauth-personal":
+        tier = "Pro"
+    except Exception:
+      pass
+
+  return {
+    "schemaVersion": 1,
+    "id": AGENT_ID,
+    "name": AGENT_NAME,
+    "updatedAt": datetime.now(timezone.utc).isoformat(),
+    "ready": True,
+    "hasLocalStats": True,
+    "tierLabel": tier,
+    "usageStatusText": "",
+    "authHelpText": AUTH_HELP,
+    "limits": [],
+    "todayPrompts": today_prompts,
+    "todaySessions": today_sessions,
+    "todayTotalTokens": today_total_tokens,
+    "todayTokensByModel": today_tokens_by_model,
+    "recentDays": [recent[day] for day in recent_dates],
+    "totalPrompts": total_prompts,
+    "totalSessions": len(all_sessions) if all_sessions else (1 if today_prompts > 0 else 0),
+    "activeDays": len(active_dates),
+    "activeDates": sorted(active_dates),
+    "modelUsage": model_usage,
+  }
+
+
+def cached_stats(max_age):
+  cache_file, lock_file = scan_cache_paths()
+  cached = read_fresh_json(cache_file, max_age)
+  if cached is not None and isinstance(cached, dict) and cached.get("schemaVersion") == 1:
+    today = datetime.now().strftime("%Y-%m-%d")
+    if cached.get("scanDate") == today:
+      return cached.get("stats")
+
+  try:
+    with lock_file.open("w") as lock:
+      fcntl.flock(lock, fcntl.LOCK_EX)
+      cached = read_fresh_json(cache_file, max_age)
+      if cached is not None and isinstance(cached, dict) and cached.get("schemaVersion") == 1:
+        today = datetime.now().strftime("%Y-%m-%d")
+        if cached.get("scanDate") == today:
+          return cached.get("stats")
+      stats = scan_antigravity_usage()
+      today = datetime.now().strftime("%Y-%m-%d")
+      write_json(cache_file, {"schemaVersion": 1, "scanDate": today, "stats": stats})
+      return stats
+  except Exception as exc:
+    print(f"omarchy-agent-usage-antigravity: cache error ({exc}); scanning directly", file=sys.stderr)
+    return scan_antigravity_usage()
+
+
+def main():
+  parser = argparse.ArgumentParser()
+  parser.add_argument("--force", action="store_true")
+  parser.add_argument("--limits-only", action="store_true")
+  args = parser.parse_args()
+
+  max_age = 0 if args.force else (LIMITS_ONLY_REUSE_SECONDS if args.limits_only else SCAN_REUSE_SECONDS)
+  record = cached_stats(max_age)
+  print(json.dumps(record, separators=(",", ":")))
+
+
+if __name__ == "__main__":
+  main()

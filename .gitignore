@@ -1,0 +1,7 @@
+*.bak
+*.bak.*
+*.migrated
+*.log
+.DS_Store
+__pycache__/
+gtk-3.0/bookmarks
